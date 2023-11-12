@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -80,13 +79,27 @@ func explorerRecursive(node *Node, option *Option) {
 	}
 
 	// 目录中的文件和子目录
-	sub, err := ioutil.ReadDir(node.Path)
+	sub, err := os.ReadDir(node.Path)
 	if err != nil {
 		info := "目录不存在，或打开错误。"
 		log.Printf("%v: %v", info, err)
 		return
 	}
+	containsMarkdown := false
+	for _, f := range sub {
+		if f.IsDir() {
+			continue
+		}
+		if path.Ext(f.Name()) == ".md" {
+			containsMarkdown = true
+			break
+		}
+	}
 
+	// 如果目录不包含Markdown文件，则返回
+	if !containsMarkdown {
+		return
+	}
 	for _, f := range sub {
 		tmp := path.Join(node.Path, f.Name())
 		var child Node

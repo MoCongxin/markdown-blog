@@ -213,7 +213,7 @@ func searchActiveNav(node *utils.Node, activeNav string) {
 }
 
 func getFirstNav(node utils.Node) utils.Node {
-	if !node.IsDir {
+	if !node.IsDir || len(node.Children) == 0 {
 		return node
 	}
 	return getFirstNav(*node.Children[0])

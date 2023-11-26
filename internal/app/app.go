@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -88,6 +89,7 @@ func RunWeb(ctx *cli.Context) error {
 
 	app.Favicon("./favicon.ico")
 	app.HandleDir("/static", getStatic())
+	app.HandleDir("/md", MdDir)
 	app.Get("/{f:path}", iris.Cache(Cache), articleHandler)
 	app.Get(fmt.Sprintf("/%s/{f:path}", FDir), serveFileHandler)
 
@@ -263,6 +265,21 @@ func articleHandler(ctx iris.Context) {
 
 func mdToHtml(content []byte) template.HTML {
 	strs := string(content)
+	// 正则表达式来匹配Markdown中的图片链接
+	re := regexp.MustCompile(`!\[.*?\]\((.*?)\)`)
+
+	// 替换所有匹配的图片链接
+	strs = re.ReplaceAllStringFunc(strs, func(match string) string {
+		// 提取图片路径
+		imagePath := re.FindStringSubmatch(match)[1]
+
+		// 如果路径不是以"http://"或"https://"开头，则添加"/md/"前缀
+		if !strings.HasPrefix(imagePath, "http://") && !strings.HasPrefix(imagePath, "https://") {
+			imagePath = "/md/" + imagePath
+		}
+
+		return fmt.Sprintf("![image](%s)", imagePath)
+	})
 
 	var htmlFlags blackfriday.HTMLFlags
 

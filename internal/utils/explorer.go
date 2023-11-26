@@ -64,82 +64,66 @@ func Explorer(option Option) (Node, error) {
 //	node : 目录节点
 //	option : 遍历选项
 func explorerRecursive(node *Node, option *Option) {
-	// 节点的信息
 	p, err := os.Stat(node.Path)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	// 是否为目录
 	node.IsDir = p.IsDir()
 
-	// 非目录，返回
-	if !p.IsDir() {
+	if !node.IsDir {
 		return
 	}
 
-	// 目录中的文件和子目录
 	sub, err := os.ReadDir(node.Path)
 	if err != nil {
-		info := "目录不存在，或打开错误。"
-		log.Printf("%v: %v", info, err)
+		log.Printf("无法读取目录: %v: %v", node.Path, err)
 		return
 	}
-	containsMarkdown := false
+
+	var containsMarkdown bool
+	var children []*Node
+
+	// 先递归检查子目录
 	for _, f := range sub {
 		if f.IsDir() {
-			continue
-		}
-		if path.Ext(f.Name()) == ".md" {
-			containsMarkdown = true
-			break
-		}
-	}
-
-	// 如果目录不包含Markdown文件，则返回
-	if !containsMarkdown {
-		return
-	}
-	for _, f := range sub {
-		tmp := path.Join(node.Path, f.Name())
-		var child Node
-		// 完整子目录
-		child.Path = tmp
-		// 目录（或文件）名
-		child.Name = f.Name()
-		// 访问路径
-		child.Link = strings.TrimPrefix(strings.TrimSuffix(tmp, path.Ext(f.Name())), CurDirPath)
-
-		// 目录或文件名（不包含后缀）
-		child.ShowName = strings.TrimSuffix(f.Name(), path.Ext(f.Name()))
-		if strings.Index(child.ShowName, "@") != -1 {
-			child.ShowName = child.ShowName[strings.Index(child.ShowName, "@")+1:]
-		}
-		// 是否为目录
-		child.IsDir = f.IsDir()
-
-		// 目录
-		if f.IsDir() {
-			// 查找子目录
-			if option.SubFlag {
-				// 不在忽略目录中的目录，进行递归查找
-				if !IsInSlice(option.IgnorePath, f.Name()) {
-					node.Children = append(node.Children, &child)
-					explorerRecursive(&child, option)
+			childPath := path.Join(node.Path, f.Name())
+			if !IsInSlice(option.IgnorePath, childPath) {
+				child := &Node{
+					Path: childPath,
+					Name: f.Name(),
+				}
+				explorerRecursive(child, option)
+				if len(child.Children) > 0 {
+					// 如果子目录包含.md文件，则将其添加到子节点中
+					children = append(children, child)
+					containsMarkdown = true
 				}
 			}
-		} else { // 文件
-			// 过滤非md文件
-			if path.Ext(f.Name()) != ".md" {
-				continue
-			}
-
-			// 非忽略文件，添加到结果中
-			if IsInSlice(option.IgnoreFile, f.Name()) {
-				continue
-			}
-
-			node.Children = append(node.Children, &child)
 		}
+	}
+
+	// 检查当前目录是否包含.md文件
+	for _, f := range sub {
+		if !f.IsDir() && path.Ext(f.Name()) == ".md" && !IsInSlice(option.IgnoreFile, f.Name()) {
+			child := &Node{
+				Path:     path.Join(node.Path, f.Name()),
+				Name:     f.Name(),
+				ShowName: strings.TrimSuffix(f.Name(), path.Ext(f.Name())),
+				IsDir:    false,
+			}
+			tmp := path.Join(node.Path, f.Name())
+			child.Link = strings.TrimPrefix(strings.TrimSuffix(tmp, path.Ext(f.Name())), CurDirPath)
+			if strings.Index(child.ShowName, "@") != -1 {
+				child.ShowName = child.ShowName[strings.Index(child.ShowName, "@")+1:]
+			}
+			children = append(children, child)
+			containsMarkdown = true
+		}
+	}
+
+	// 只有当目录或其子目录包含.md文件时，才将子节点添加到当前节点
+	if containsMarkdown {
+		node.Children = children
 	}
 }

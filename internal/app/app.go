@@ -258,12 +258,23 @@ func articleHandler(ctx iris.Context) {
 		return
 	}
 
-	ctx.ViewData("Article", mdToHtml(bytes))
+	// 获取mdfile相对于MdDir的路径
+	relPath, err := filepath.Rel(MdDir, mdfile)
+	if err != nil {
+		ctx.Application().Logger().Errorf("Error calculating relative path: %s", err)
+		ctx.StatusCode(500)
+		return
+	}
+
+	// 计算mdFilePath，去除文件名部分
+	mdFilePath := filepath.Dir(relPath)
+
+	ctx.ViewData("Article", mdToHtml(bytes, mdFilePath))
 
 	ctx.View("index.html")
 }
 
-func mdToHtml(content []byte) template.HTML {
+func mdToHtml(content []byte, mdFilePath string) template.HTML {
 	strs := string(content)
 	// 正则表达式来匹配Markdown中的图片链接
 	re := regexp.MustCompile(`!\[.*?\]\((.*?)\)`)
@@ -275,7 +286,7 @@ func mdToHtml(content []byte) template.HTML {
 
 		// 如果路径不是以"http://"或"https://"开头，则添加"/md/"前缀
 		if !strings.HasPrefix(imagePath, "http://") && !strings.HasPrefix(imagePath, "https://") {
-			imagePath = "/md/" + imagePath
+			imagePath = "/md/" + mdFilePath + "/" + imagePath
 		}
 
 		return fmt.Sprintf("![image](%s)", imagePath)

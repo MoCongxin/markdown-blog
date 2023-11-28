@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -49,7 +50,7 @@ func Explorer(option Option) (Node, error) {
 		// 目录路径
 		CurDirPath = p
 		child.Path = p
-
+		// child.ShowName = filepath.Base(p)
 		// 递归
 		explorerRecursive(&child, &option)
 
@@ -83,7 +84,7 @@ func explorerRecursive(node *Node, option *Option) {
 
 	var containsMarkdown bool
 	var children []*Node
-
+	node.ShowName = filepath.Base(node.Path)
 	// 先递归检查子目录
 	for _, f := range sub {
 		if f.IsDir() {
